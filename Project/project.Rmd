@@ -1,0 +1,148 @@
+---
+title: "Project"
+author: "Jack"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+Facebook Social Media Metrics: Use facebook_updated.csv that contains the same data set
+but includes an additional column obs_type, indicating whether each observation should be
+considered for training or validation. Your goal is to construct a model using training data
+(obs_type == “Training”) and predict the ‘Lifetime Post Consumers’ for the validation
+observations (obs_type == “Validation”). To do this, you'll use the training observations to
+train your linear model. Once you have finalized a model, use it to make predictions for the
+validation data set. Consider the seven input features category, page total likes, type,
+month, hour, weekday, paid as predictors. Leverage your findings from lab report #3 to
+inform which combination of these predictors might work best. You should aim to build a model
+that can make predictions as accurately as possible.
+
+```{r}
+setwd("C:/Users/jackw/Documents/R/Project2")
+# install.packages("car")
+# install.packages("ggplot")
+library(car)
+library(ggplot2)
+# library(GGally)
+```
+
+
+```{r}
+library(readr)
+facebook <- read_delim("facebook_updated.csv", 
+    delim = ",", escape_double = FALSE, trim_ws = TRUE)
+View(facebook)
+```
+
+```{r}
+# type factor 
+facebook$`Type` <- factor(facebook$`Type`)
+str(facebook$`Type`)
+
+# month factor
+month_names <- c("Jan", "Feb", "Mar", "Apr", "May", "Jun" , "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+facebook$`Post Month` <- factor(facebook$`Post Month`, levels = 1:12, labels = month_names)
+str(facebook$`Post Month`)
+
+facebook <- na.omit(facebook)
+```
+
+
+```{r}
+# normalizing likes
+facebook$like[is.na(facebook$like)] <- 0
+facebook$log_like <- NA
+facebook$log_like <- log(facebook$`like`)
+facebook$like[facebook$like=='-Inf'] <- 0
+
+# normalizing `Lifetime Post Total Reach`
+facebook$lt_post_tot_reach <- NA
+facebook$lt_post_tot_reach <- log(facebook$`Lifetime Post Total Reach`)
+
+facebook <- na.omit(facebook)
+facebook <- facebook[is.finite(facebook$`Lifetime Post Total Reach`) & is.finite(facebook$log_like) & is.finite(facebook$`Page total likes`), ]
+
+lm_model <- lm(lt_post_tot_reach ~ `Type` + `Page total likes` + I(log_like^1.5), data = facebook)
+
+# plot(facebook$`Page total likes`, facebook$`Lifetime Post Total Reach`)
+plot(facebook$log_like^2, facebook$`Lifetime Post Total Reach`)
+plot(facebook$`like`, facebook$`Lifetime Post Total Reach`)
+# 
+# summary(facebook$`Page total likes`)
+summary(lm_model)
+plot(lm_model)
+vif(lm_model)
+avPlots(lm_model)
+```
+
+```{r}
+# normalizing likes
+facebook$like[is.na(facebook$like)] <- 0
+facebook$log_like <- NA
+facebook$log_like <- log(facebook$`like`)
+facebook$like[facebook$like=='-Inf'] <- 0
+
+# normalizing `Lifetime People who have liked your Page and engaged with your post`
+facebook$lt_ppl_lkd_egnged <- NA
+facebook$lt_ppl_lkd_egnged <- log(facebook$`Lifetime People who have liked your Page and engaged with your post`)
+
+facebook <- na.omit(facebook)
+facebook <- facebook[is.finite(facebook$`Lifetime Post Total Reach`) & is.finite(facebook$log_like) & is.finite(facebook$`Page total likes`), ]
+
+lm_model <- lm(lt_ppl_lkd_egnged ~ `Type` + `Page total likes` + log(`Lifetime Post Total Impressions`) + I(log_like^2), data = facebook)
+
+summary(lm_model)
+plot(lm_model)
+vif(lm_model)
+avPlots(lm_model)
+```
+
+
+```{r}
+# str(facebook)
+
+facebook$Paid <- as.factor(facebook$Paid)
+
+# post reach
+facebook$log_ltpostreach <- NA
+facebook$log_ltpostreach <- log(facebook$`Lifetime Post reach by people who like your Page`)
+plot(density(facebook$log_ltpostreach))
+
+# likes
+facebook$like[is.na(facebook$like)] <- 0
+facebook$log_like <- NA
+facebook$log_like <- log(facebook$`like`)
+plot(density(facebook$log_like))
+
+# workday
+facebook$hours_factor <- ifelse(facebook$`Post Hour` >= 9 & facebook$`Post Hour` < 17, "Work", "Non-Work")
+facebook$hours_factor <- factor(facebook$hours_factor, levels = c("Work", "Non-Work"))
+
+# total interactions
+facebook$log_tot_interact <- NA
+facebook$log_tot_interact <- log(facebook$`Total Interactions`)
+plot(density(facebook$log_tot_interact))
+
+facebook$like[is.na(facebook$share)] <- 0
+facebook$log_share <- NA
+facebook$log_share <- log(facebook$share)
+plot(density(facebook$log_share))
+
+facebook <- na.omit(facebook)
+facebook <- facebook[is.finite(facebook$share) & is.finite(facebook$log_ltpostreach) & is.finite(facebook$log_like), ]
+
+lm_model3 <- lm(share ~ log_like + log_tot_interact + hours_factor, data = facebook)
+
+residuals_lm <- residuals(lm_model3)
+threshold <- 50 
+high_residuals <- which(abs(residuals_lm) > threshold)
+facebook_cleaned <- subset(facebook, !row.names(facebook) %in% high_residuals)
+
+lm_model_cleaned <- lm(log_share ~ log_tot_interact + log_like + hours_factor + I(log_like^2) + I(log_tot_interact^2), data = facebook_cleaned)
+
+summary(lm_model_cleaned)
+plot(lm_model_cleaned)
+```

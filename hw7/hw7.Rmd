@@ -1,0 +1,49 @@
+---
+title: "hw7"
+author: "Jack"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load-packages/setwd, include=TRUE}
+setwd("C:/Users/jackw/Documents/R/Project")
+library(ggplot2)
+library(dplyr)
+library(GGally)
+```
+
+```{r Question 2}
+q2_data = read.table("boxoffice.txt", header=TRUE)
+q2_data$years_past_1975 = q2_data$year - 1975
+View(q2_data)
+```
+
+```{r Question 2}
+model = lm(
+  `GrossBoxOffice` ~
+  `year`,
+  I(`year`^2),
+  I(`year`^3),
+  data = q2_data
+)
+```
+
+
+```{r}
+summary(model)
+plot(model)
+avPlots(model)
+vif(model)
+```
+
+
+# ```{r Question 3}
+# library(readr)
+# q3_data <- read_csv("R/hw7/UN11(5).csv")
+# View(q3_data)
+# ```
+

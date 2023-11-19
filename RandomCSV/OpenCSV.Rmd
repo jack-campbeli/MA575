@@ -1,0 +1,17 @@
+---
+title: "Project"
+author: "Jack"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+```{r}
+library(readr)
+data_processed <- read_csv("data-processed.csv")
+View(data_processed)
+```
+

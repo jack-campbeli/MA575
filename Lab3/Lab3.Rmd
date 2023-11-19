@@ -1,0 +1,194 @@
+---
+title: 'BS755 / MA575 Lab 3: Data Visualization'
+date: "Friday, September 22, 2023"
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: yes
+---
+
+# Lab 3: Data Visualization
+
+In this lab, we will explore data visualization using an air quality data set.
+
+## Setup
+
+# Setting up global options to supress printing any warnings. Install `rmarkdown` and `knitr` packages.
+
+```{r setup}
+# Global options to suppress warnings in all code chunks
+knitr::opts_chunk$set(warning = FALSE)
+
+# Install rmarkdown and knitr packages if they are not already installed.
+#install.packages("rmarkdown")
+#install.packages("knitr")
+```
+
+### Set Working Directory
+
+# First, set the working directory to the location where your data is stored on your computer. Uncomment and modify the `setwd` line as needed.
+
+```{r}
+setwd("C:/Users/jackw/Documents/R/Lab3")
+```
+
+### Install and Load Packages
+
+Install and load the necessary R packages if they are not already installed. Uncomment the `install.packages` lines if needed.
+
+```{r}
+#install.packages("car")
+#install.packages("ggplot2")
+#install.packages("GGally")
+library(car)
+library(ggplot2)
+library(GGally)
+```
+
+## Data Import and Exploration
+
+### Read Data
+
+Let's start by reading the data from a CSV file using a semicolon as the delimiter.
+
+```{r}
+# Read data from a CSV file using semicolon as delimiter
+library(readr)
+aq_data <- read_delim("AirQualityData(3).csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
+View(aq_data)
+```
+
+### Check Missing Values
+
+We'll check for missing values in the "CO.GT." column.
+
+```{r}
+# Plot Ground CO
+plot(aq_data$`CO(GT)`)
+
+# Summary of each column
+summary(aq_data)
+
+# In this data set it looks like missing values are stored as -200
+# Check which values in Ground CO are -200
+# which(aq_data$CO.GT. == -200)
+# The output gives indices/positions in the vector with values -200
+
+# Check how many values in Ground CO are -200
+length(which(aq_data$CO.GT. == -200))
+
+# Exercise: Check other columns in the data set for missing values 
+```
+
+### Data Cleaning
+
+Replace missing data (-200) with NA.
+
+```{r}
+# Replace missing data (-200) with NA
+aq_data[aq_data == -200] <- NA
+# Note that this replaces -200 to NA across all columns in aq_data
+```
+
+### Data Type Conversion
+
+Check for column types for the columns in the data set.
+
+```{r}
+# Check column types for all columns in the data set
+str(aq_data)
+# Check column types for specific columsn
+# typeof(aq_data$Temperature)
+```
+
+Force specific columns to be numeric if they are not already.
+
+```{r}
+# Force specific columns to be numeric if not numeric/integer already.
+# Note that change in variable names of PT08.S1.CO. and CO.GT.
+Temperature <- as.numeric(as.character(aq_data$Temperature))
+RelativeHumidity <- as.numeric(as.character(aq_data$RelativeHumidity))
+AbsoluteHumidity <- as.numeric(as.character(aq_data$AbsoluteHumidity))
+SensorCO <- as.numeric(as.character(aq_data$`PT08.S2(NMHC)`))
+GroundCO <- as.numeric(as.character(aq_data$`CO(GT)`))
+```
+
+## Data Visualization
+
+### Scatterplot of Ground CO
+
+Let's create a scatterplot of Ground CO.
+
+```{r}
+# Scatterplot of Ground CO
+plot(GroundCO)
+```
+
+### Scatterplot of Ground CO vs. Sensor CO
+
+Now, we'll create a scatterplot of Ground CO vs. Sensor CO.
+
+```{r}
+# Plot scatterplot of GroundCO vs SensorCO
+plot(SensorCO, GroundCO)
+
+# Plot scatterplot of GroundCO vs SensorCO using the scatterplot function ...
+# ... from the car package
+scatterplot(SensorCO, GroundCO)
+
+# Documentation for scatterplot function
+# ?scatterplot
+
+# Scatterplot of Ground CO vs. Sensor CO
+plot(SensorCO, GroundCO,
+     ylab="Ground Truth (CO)", xlab="Sensor CO",
+     pch=19, cex=0.1)
+```
+
+### Scatterplot Matrix
+
+We can also create a scatterplot matrix to visualize relationships among variables.
+
+```{r}
+# Scatterplot matrix of all the variables using the scatterplotMatrix ...
+# ... function from the car package
+scatterplotMatrix(~ GroundCO + SensorCO + Temperature + AbsoluteHumidity +
+                    RelativeHumidity,
+                  pch=19, cex=0.1)
+```
+
+### Scatterplot using ggplot2
+
+Let's create a scatterplot using the `ggplot2` package.
+
+```{r}
+# Scatterplot using ggplot2
+# Create a data frame with SensorCO and GroundCO
+co_data <- data.frame(SensorCO, GroundCO)
+# ggplot function for scatterplot
+ggplot2(co_data, aes(x=SensorCO, y=GroundCO)) + 
+  geom_point(size=0.1)
+```
+
+### Scatterplot Matrix using ggplot2
+
+We can create a scatterplot matrix with correlation coefficients using `ggplot2`.
+
+```{r}
+# Create a data frame with GroundCO, SensorCO, Temperature, ...
+# ... AbsoluteHumidity, RelativeHumidity
+co_temp_data <- data.frame(GroundCO, SensorCO, Temperature, AbsoluteHumidity, RelativeHumidity)
+
+# Scatterplot matrix with 2D contours
+ggpairs(co_temp_data,
+        lower=list(continuous=wrap("density", alpha=0.5), combo="box"),
+        upper=list(continuous=wrap("points", alpha=0.3, size=0.1)))
+
+# Scatterplot matrix with correlation coefficients
+ggpairs(co_temp_data,
+        upper=list(continuous=wrap("points", alpha=0.3, size=0.1)),
+        lower=list(continuous=wrap('cor', size=4)))
+```
+
+This concludes our data visualization lab. Remember to save this Rmd script and use an R Markdown editor or RStudio to knit it into a PDF. Ensure you have [LaTeX](https://www.latex-project.org/) installed to compile this script directly into a PDF instead of HTML; you will need to change the option of `html_document` to `pdf_document` in the header.

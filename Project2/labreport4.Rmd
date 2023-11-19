@@ -1,0 +1,155 @@
+---
+title: "Your R Markdown Title"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Set working directory
+```{r}
+setwd("C:/Users/jackw/Documents/R/Project2")
+```
+
+```{r}
+# install.packages("ggplot2")
+# install.packages("GGally")
+# install.packages("MASS")
+# install.packages("rms")
+# install.packages("car")
+# install.packages("mice")
+# install.packages("MLmetrics")
+# install.packages("caret")
+```
+
+```{r}
+library(ggplot2)
+library(GGally)
+library(MASS)
+library(rms)
+library(car)
+library(mice)
+library(MLmetrics)
+library(caret)
+```
+
+# Read in dataset
+```{r}
+facebook <- read.csv("facebook_updated.csv", header = TRUE, sep = ",")
+View(facebook)
+```
+
+# Check missing data using md.pattern
+```{r}
+md.pattern(facebook, rotate.names = TRUE) #check missing data
+facebook$like[is.na(facebook$like)] <- 0 #replace missing data
+facebook$share[is.na(facebook$share)] <- 0 
+facebook$Paid[is.na(facebook$Paid)] <- 0 
+facebook$comment[is.na(facebook$comment)] <- 0 
+md.pattern(facebook, rotate.names = TRUE)# double check missing data
+facebook$Category<-as.character(facebook$Category)
+
+#create category variable
+facebook$season<-NA
+facebook$season[facebook$Post.Month<=2]<-'winter'
+facebook$season[facebook$Post.Month>11]<-'winter'
+facebook$season[facebook$Post.Month>=3 & facebook$Post.Month<6]<-'spring'
+facebook$season[facebook$Post.Month>5 & facebook$Post.Month<9]<-'summer'
+facebook$season[facebook$Post.Month>8&facebook$Post.Month<12]<-'autumn'
+facebook$weekday<-NA
+facebook$weekday[facebook$Post.Weekday<6]<-1
+facebook$weekday[facebook$Post.Weekday>5]<-0
+facebook$worktime<-0
+facebook$worktime[facebook$Post.Hour>9 & facebook$Post.Hour<18]<-1
+
+#transform
+facebook$ln.Page.Total.likes<-log(facebook$Page.total.likes)
+facebook$ln.Lifetime.Post.Consumers<-log(facebook$Lifetime.Post.Consumers)
+
+# double check missing data
+md.pattern(facebook, rotate.names = TRUE)
+#summary all column
+summary(facebook)
+```
+
+```{r}
+# Assuming 'facebook' is your data frame
+boxplot_data <- facebook$ln.Lifetime.Post.Consumers
+boxplot_result <- boxplot(boxplot_data, plot = TRUE, out = TRUE)
+
+outlier_indices <- boxplot_result$out
+outlier_rows <- which(boxplot_data %in% outlier_indices)
+outliers_df <- data.frame(Row = outlier_rows, Value = boxplot_data[outlier_rows])
+
+print(outliers_df)
+
+facebook <- facebook[-outlier_rows, ]
+head(facebook)
+
+boxplot_data <- facebook$ln.Lifetime.Post.Consumers
+boxplot_result <- boxplot(boxplot_data, plot = TRUE, out = TRUE)
+summary(facebook$ln.Lifetime.Post.Consumers)
+```
+
+
+```{r}
+#create training and validation dataset
+training_data <- subset(facebook_no_outliers, obs_type == "Training")
+validation_data <- subset(facebook_no_outliers, obs_type == "Validation")
+#model selection
+m.mlr <- lm(ln.Lifetime.Post.Consumers ~ Type + season + worktime +I(ln.Page.Total.likes)
+            + weekday + Category + Paid + Paid*ln.Page.Total.likes
+            + Type*ln.Page.Total.likes + season*ln.Page.Total.likes + worktime*ln.Page.Total.likes +
+              weekday*ln.Page.Total.likes + Category*ln.Page.Total.likes
+            ,data = training_data)
+summary(m.mlr)
+plot(m.mlr)
+```
+
+```{r}
+stepwise_model <- step(m.mlr, direction = "both")
+#remove insignificant variables 
+stepwise<-lm(ln.Lifetime.Post.Consumers~  ln.Page.Total.likes + Type:ln.Page.Total.likes + 
+               season:ln.Page.Total.likes, data=training_data)
+summary(stepwise)
+#diagnose
+plot(stepwise)
+avPlots(stepwise)
+vif(stepwise)
+```
+
+```{r}
+#prediction
+validation_data$Predicted_ln.Lifetime.Post.Consumers <- predict(stepwise, newdata = validation_data)
+observed_values <- validation_data$ln.Lifetime.Post.Consumers
+predicted_values <- validation_data$Predicted_ln.Lifetime.Post.Consumers
+
+rmse <- RMSE(predicted_values, observed_values)
+mae <- MAE(predicted_values, observed_values)
+r_squared <- R2_Score(predicted_values, observed_values)
+cat("Root Mean Squared Error (RMSE):", round(rmse, digits = 4))
+cat("Mean Absolute Error (MAE):", round(mae, digits = 4))
+cat("R-squared (R^2) Score:", round(r_squared, digits = 4))
+```
+
+```{r}
+ggplot(validation_data, aes(x = ln.Lifetime.Post.Consumers, y = Predicted_ln.Lifetime.Post.Consumers)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(x = "Observed Values", y = "Predicted Values",
+       title = "Observed vs. Predicted Values") +
+  xlim(c(2,10)) +
+  ylim(c(4,8)) +
+  theme_bw()
+```
+
+```{r}
+# Residuals plot
+ggplot(validation_data, aes(x = 1:nrow(validation_data), y = ln.Lifetime.Post.Consumers-Predicted_ln.Lifetime.Post.Consumers)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 0, color = "red", linetype = "dashed") +
+  labs(x = "Observation Index", y = "Residuals",
+       title = "Observed vs. Predicted Values") +
+  theme_bw()
+```

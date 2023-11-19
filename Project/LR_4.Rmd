@@ -1,0 +1,205 @@
+---
+title: "Your R Markdown Title"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Set working directory
+```{r}
+setwd("C:/Users/jackw/Documents/R/Project")
+```
+
+```{r}
+# install.packages("ggplot2")
+# install.packages("GGally")
+# install.packages("MASS")
+# install.packages("rms")
+# install.packages("car")
+# install.packages("mice")
+# install.packages("MLmetrics")
+# install.packages("caret")
+```
+
+
+```{r}
+library(ggplot2)
+library(GGally)
+library(MASS)
+library(rms)
+library(car)
+library(mice)
+library(MLmetrics)
+library(caret)
+```
+
+# Read in dataset
+```{r}
+facebook <- read.csv("dataset_Facebook.csv", header = TRUE, sep = ";")
+```
+
+# Check missing data using md.pattern
+```{r}
+md.pattern(facebook)
+
+# Replace missing values with 0 in specific columns
+facebook$like[is.na(facebook$like)] <- 0 
+facebook$share[is.na(facebook$share)] <- 0 
+facebook$Paid[is.na(facebook$Paid)] <- 0 
+facebook$comment[is.na(facebook$comment)] <- 0 
+```
+# Double-check missing data
+```{r}
+md.pattern(facebook)
+```
+```{r}
+# Convert columns to appropriate data types
+facebook$Category <- as.character(facebook$Category)
+facebook$season <- NA
+```
+
+# Create a 'season' variable based on 'Post.Month'
+```{r}
+facebook$season[facebook$Post.Month <= 2] <- 'winter'
+facebook$season[facebook$Post.Month > 11] <- 'winter'
+facebook$season[facebook$Post.Month >= 3 & facebook$Post.Month < 6] <- 'spring'
+facebook$season[facebook$Post.Month > 5 & facebook$Post.Month < 9] <- 'summer'
+facebook$season[facebook$Post.Month > 8 & facebook$Post.Month < 12] <- 'autumn'
+```
+
+```{r}
+# Create 'weekday' and 'worktime' variables
+facebook$weekday <- NA
+facebook$weekday[facebook$Post.Weekday < 6] <- 1
+facebook$weekday[facebook$Post.Weekday > 5] <- 0
+facebook$worktime <- 0
+facebook$worktime[facebook$Post.Hour > 9 & facebook$Post.Hour < 18] <- 1
+```
+
+```{r}
+# Create a logarithm of 'Page.total.likes'
+facebook$ln.Page.Total.likes <- log(facebook$Page.total.likes)
+
+# Remove a specific row
+facebook <- subset(facebook, row.names(facebook) != 442)
+
+# Double-check missing data
+md.pattern(facebook)
+
+# Display summary statistics for all columns
+summary(facebook)
+
+# Create a logarithm of 'Lifetime.Post.Consumers'
+facebook$ln.Lifetime.Post.Consumers <- log(facebook$Lifetime.Post.Consumers)
+```
+
+```{r}
+# Set seed for reproducibility
+set.seed(20231112)
+
+# Create a training-validation split
+index <- createDataPartition(y = facebook$ln.Lifetime.Post.Consumers, p = 0.5, list = FALSE)
+facebook$DataType <- NA
+facebook$DataType[index] <- "Training"
+facebook$DataType[-index] <- "Validation"
+training_data <- subset(facebook, DataType == "Training")
+```
+
+```{r}
+# Fit a multiple linear regression model
+m.mlr <- lm(ln.Lifetime.Post.Consumers ~ Type + season + worktime + I(log(Page.total.likes)) +
+            weekday + Category + Paid + Paid * ln.Page.Total.likes +
+            Type * ln.Page.Total.likes + season * ln.Page.Total.likes +
+            worktime * ln.Page.Total.likes + weekday * ln.Page.Total.likes +
+            Category * ln.Page.Total.likes, data = facebook)
+```
+
+```{r}
+# Display summary statistics for the model
+summary(m.mlr)
+```
+
+```{r}
+# Plot diagnostic plots for the model
+plot(m.mlr)
+```
+```{r}
+# Perform stepwise regression
+stepwise_model <- step(m.mlr, direction = "both")
+
+# Fit a simplified model using selected variables
+stepwise <- lm(ln.Lifetime.Post.Consumers ~ Paid + ln.Page.Total.likes +
+               Type:ln.Page.Total.likes + season:ln.Page.Total.likes, data = facebook)
+```
+
+```{r}
+# Display summary statistics for the simplified model
+summary(stepwise)
+```
+
+```{r}
+# Plot diagnostic plots for the simplified model
+plot(stepwise)
+```
+
+```{r}
+# Display added variable plots for the simplified model
+avPlots(stepwise)
+```
+
+```{r}
+# Check for multicollinearity using variance inflation factor (VIF)
+vif(stepwise)
+```
+
+```{r}
+# Fit the simplified model on the training data
+model1 <- lm(ln.Lifetime.Post.Consumers ~ Paid + ln.Page.Total.likes +
+             Type:ln.Page.Total.likes + season:ln.Page.Total.likes, data = training_data)
+```
+
+```{r}
+# Subset validation data
+validation_data <- subset(facebook, DataType == "Validation")
+
+# Predict using the simplified model on the validation data
+validation_data$Predicted_ln.Lifetime.Post.Consumers <- predict(stepwise, newdata = validation_data)
+observed_values <- validation_data$ln.Lifetime.Post.Consumers
+predicted_values <- validation_data$Predicted_ln.Lifetime.Post.Consumers
+```
+
+```{r}
+# Calculate evaluation metrics
+rmse <- RMSE(predicted_values, observed_values)
+mae <- MAE(predicted_values, observed_values)
+r_squared <- R2_Score(predicted_values, observed_values)
+
+# Display evaluation metrics
+cat("Root Mean Squared Error (RMSE):", round(rmse, digits = 4))
+cat("Mean Absolute Error (MAE):", round(mae, digits = 4))
+cat("R-squared (R^2) Score:", round(r_squared, digits = 4))
+```
+
+```{r}
+# Plot observed vs. predicted values
+ggplot(validation_data, aes(x = ln.Lifetime.Post.Consumers, y = Predicted_ln.Lifetime.Post.Consumers)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(x = "Observed Values", y = "Predicted Values",
+       title = "Observed vs. Predicted Values") +
+  xlim(c(2, 10)) +
+  ylim(c(4, 8)) +
+  theme_bw()
+```
+
+```{r}
+# Residuals plot
+ggplot(validation_data, aes(x = 1:nrow(validation_data), y = ln.Lifetime.Post.Consumers - Predicted_ln.Lifetime.Post.Consumers)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 0, color = "red", linetype = "dashed") +
+  labs(x = "Observation Index", y = "Residuals",
+       title = "Observed vs. Predicted Values") +
+  theme_bw()
+```

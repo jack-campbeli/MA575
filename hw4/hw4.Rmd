@@ -1,0 +1,45 @@
+---
+title: "hw4"
+author: "Jack"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+# Create a data frame from the provided data
+data <- read.table(text = "Years,Sample,ThirdQ
+0,17,101300
+2,33,111303
+4,19,98000
+6,25,124000
+8,18,128475
+12,60,117410
+17,58,115825
+22,31,134300
+28,34,128066
+34,19,164700", header = TRUE, sep = ",")
+
+# Save the data frame as a CSV file
+write.csv(data, file = "yourdata.csv", row.names = FALSE)
+```
+
+```{r}
+library(readr)
+yourdata <- read_csv("yourdata.csv")
+View(yourdata)
+```
+
+```{r}
+View(yourdata)
+model = lm(ThirdQ ~ Years, data= yourdata, weights=Sample)
+summary(model)
+data = data.frame(Years = 6)
+predict(model, data)
+```
+
+

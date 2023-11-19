@@ -1,0 +1,349 @@
+---
+title: 'BS755 / MA575 Lab 6: Multiple Linear Regression'
+date: "Friday, October 13, 2023"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '2'
+  html_document:
+    toc: yes
+    toc_depth: 2
+---
+  
+# Data Processing
+  
+  This Rmarkdown document presents the analysis of multiple linear regression on air quality data.
+
+Set the working directory
+
+```{r setup, include=FALSE}
+# Set the working directory to access the data
+# setwd('~/OneDrive - Boston University/Fall 2023/Teaching/Shariq BS755 MA575/Labs/Lab 06/')
+```
+
+Load the required packages
+
+```{r load-packages, include=TRUE}
+# Load required packages if not already installed
+library(ggplot2)
+library(dplyr)
+library(GGally)
+```
+
+Reading and cleaning the data
+
+```{r read-clean-data, include=TRUE}
+# Read data from a CSV file using semicolon as delimiter
+# Use '..' to move up one directory level to access the 'Lab 03' directory ...
+# ... and read the 'AirQualityData.csv' file.
+aq_data <- read.csv("../Lab3/AirQualityData(3).csv", header=TRUE, as.is=TRUE, sep=';')
+
+# In this data set missing values are stored as -200
+# Replace missing data (-200) with NA
+aq_data[aq_data == -200] <- NA
+# Note that this replaces -200 to NA across all columns in aq_data
+
+# Create a new data frame 'tempdataset' by selecting specific columns from 'aq_data'
+# For 'Time' column: extract the numeric components from a ...
+# ... character string in a specific format and convert it into a numeric value. 
+tempdataset <- data.frame(Time = as.numeric(sub("^(\\d+).(\\d+).*", "\\1.\\2",
+                                                aq_data$Time)),
+                          Temperature = aq_data$Temperature,
+                          AbsoluteHumidity = aq_data$AbsoluteHumidity,
+                          RelativeHumidity = aq_data$RelativeHumidity,
+                          SensorCO = aq_data$PT08.S1.CO.,
+                          GroundCO = aq_data$CO.GT.)
+
+# Remove rows with missing values (NA)
+Dataset <- tempdataset[complete.cases(tempdataset), ]
+
+# Remove the 'tempdataset' data frame from the R environment
+rm(tempdataset)
+```
+
+# Model Building
+
+## Model Specifications
+
+Ordinary least squares model
+
+```{r ols-model, include=TRUE}
+# Ordinary LS
+m.ols <- lm(GroundCO ~ SensorCO, data = Dataset)
+```
+
+Quadratic least squares model
+
+```{r quad-model, include=TRUE}
+# Quadratic LS
+m.quadls <- lm(GroundCO ~ SensorCO + I(SensorCO^2), data = Dataset)
+```
+
+Quartic  least squares model
+
+```{r quartic-model, include=TRUE}
+# Quartic LS
+m.quartls <- lm(GroundCO ~ SensorCO + I(SensorCO^2) + 
+                  I(SensorCO^3) + I(SensorCO^4), data = Dataset)
+```
+
+## Model Evaluation
+
+Fitted values
+
+```{r predictions, include=TRUE}
+# Predictions/fitted-values for all three models
+SensorCONew <- seq(600, 2200, len = length(Dataset$SensorCO))
+predLinear <- predict(m.ols, newdata = data.frame(SensorCO = SensorCONew))
+predQuad <- predict(m.quadls, newdata = data.frame(SensorCO = SensorCONew))
+predQuart <- predict(m.quartls, newdata = data.frame(SensorCO = SensorCONew))
+```
+
+Fitted values plot
+
+```{r fitted-values-plot, include=TRUE}
+# Fitted values plot
+# Add a scatterplot layer to the plot with specified point size (0.1)
+# Add a line plot layer to the plot using the predLinear values, coloring them blue
+# Add second line plot layer using the predQuad values coloring them red
+# Add third  line plot layer using the predQuart values coloring them green
+# Set the color scale for the lines with labels "Linear", "Quartic", ...
+# ... and "Quadratic" and name it "Prediction" in the legend
+# Set the title of the plot to "LS Predictions"
+ggplot(Dataset, aes(x = SensorCO, y = GroundCO)) + 
+  geom_point(size = 0.1) +
+  geom_line(mapping = aes(x = SensorCONew, y = predLinear, color = "blue")) +
+  geom_line(mapping = aes(x = SensorCONew, y = predQuad, color = "red")) +
+  geom_line(mapping = aes(x = SensorCONew, y = predQuart, color = "green")) +
+  scale_color_discrete(name = "Prediction", labels = c("Linear", "Quartic", "Quadratic")) +
+  ggtitle("LS Predictions")
+```
+
+Standardized residuals for OLS
+
+```{r residuals-ols, include=TRUE}
+# Standardized Residual, Ordinary LS Standard Residual vs SensorCO
+# Calculate the standardized residuals for the OLS model
+StanResLS <- rstandard(m.ols)
+# Create a new data frame containing two columns: SensorCO and StanResLS
+dataLS <- data.frame(SensorCO = Dataset$SensorCO, StanResLS)
+# Create a scatterplot using the data in dataLS, with SensorCO ...
+# ... on the x-axis and StanResLS on the y-axis
+# Set the point size to 0.1 for better visibility
+# Add horizontal lines at y = 2 and y = -2 in blue to indicate ...
+# ... the threshold for standardized residuals
+# Set the title of the plot to "Standardized Residuals for OLS"
+ggplot(dataLS, aes(x = SensorCO, y = StanResLS)) + 
+  geom_point(size = 0.1) +
+  geom_hline(yintercept = 2, color = 'blue') + 
+  geom_hline(yintercept = -2, color = 'blue') +
+  ggtitle("Standardized Residuals for OLS")
+```
+
+Standardized residuals for Quadratic LS
+
+```{r residuals-quad, include=TRUE}
+# Quadratic LS Standard Residual vs SensorCO
+# Calculate standardized residuals for the quadratic linear model (m.quadls)
+StanResQLS <- rstandard(m.quadls)
+# Create a data frame 'dataQLS' with two columns: 'SensorCO' and 'StanResQLS'
+dataQLS <- data.frame(SensorCO = Dataset$SensorCO, StanResQLS)
+# Create a ggplot scatterplot with 'SensorCO' on the x-axis and 'StanResQLS' on the y-axis
+# Add points to the plot with a specified point size (0.1)
+# Add horizontal lines at y = 2 and y = -2 in blue to indicate threshold lines
+# Set the title of the plot to "Standardized Residuals"
+ggplot(dataQLS, aes(x = SensorCO, y = StanResQLS)) + 
+  geom_point(size = 0.1) +
+  geom_hline(yintercept = 2, color = 'blue') + 
+  geom_hline(yintercept = -2, color = 'blue') +
+  ggtitle("Standardized Residuals")
+```
+
+Combined standardized residuals plot
+
+```{r combined-residuals-plot, include=TRUE}
+# Combine LS and Quadratic Stan. Res. plot in the same
+# Create a ggplot scatterplot with 'SensorCO' on the x-axis and 'StanResQLS' ...
+# ... as well as 'StanResQLS' on the y-axis
+# Add points to the plot with a specified point size (0.1)
+# Add horizontal lines at y = 2 and y = -2 in blue to indicate threshold lines
+# Set a manual color scale for the points with labels "Linear" and "Quadratic"
+# Add a label for the y-axis
+# Set the title of the plot to "Standardized Residuals"
+ggplot() + 
+  geom_point(data = dataLS, aes(x = SensorCO, y = StanResLS, color = "Linear"),
+             size = 0.1) +
+  geom_point(data = dataQLS, aes(x = SensorCO, y = StanResQLS, color = "Quadratic"),
+             size = 0.1) +
+  geom_hline(yintercept = 2, color = 'blue') + 
+  geom_hline(yintercept = -2, color = 'blue') +
+  scale_color_manual(name = element_blank(), labels = c("Linear", "Quadratic"),
+                     values = c("blue", "red")) +
+  labs(y = "Standardized Residual") + 
+  ggtitle("Standardized Residuals Plot") 
+```
+
+Standardized residuals vs fitted for OLS and Quadratic LS
+
+```{r residuals-vs-fitted, include=TRUE}
+# Standardized Residuals vs Fitted
+# Calculate the fitted values for the OLS model
+Fitted <- fitted(m.ols)
+# Create a data frame containing the fitted values and the standardized residuals
+dataLSFitted <- data.frame(Fitted, StanResLS)
+# Calculate the fitted values for the QuadLS model
+Fitted <- fitted(m.quadls)
+# Create a data frame containing the fitted values and the standardized residuals
+dataQLSFitted <- data.frame(Fitted, StanResQLS)
+
+# Combine OLS and Quadratic LS standardized residuals vs fitted values plot 
+# Create a ggplot scatterplot with fitted values on the x-axis and 'StanResQLS' ...
+# ... as well as 'StanResQLS' on the y-axis
+# Add points to the plot with a specified point size (0.1)
+# Add horizontal lines at y = 2 and y = -2 in blue to indicate threshold lines
+# Set a manual color scale for the points with labels "Linear" and "Quadratic"
+# Add a label for the y-axis
+# Set the title of the plot to "Standardized Residuals"
+ggplot() + 
+  geom_point(data = dataLSFitted, aes(x = Fitted, y = StanResLS, color = "Linear"),
+             size = 0.1) +
+  geom_point(data = dataQLSFitted, aes(x = Fitted, y = StanResQLS, color = "Quadratic"),
+             size = 0.1) +
+  geom_hline(yintercept = 2, color = 'blue') + 
+  geom_hline(yintercept = -2, color = 'blue') +
+  scale_color_manual(name = element_blank(), labels = c("Linear", "Quadratic"),
+                     values = c("blue", "red")) +
+  labs(y = "Standardized Residual") + 
+  labs(x = "Fitted value") + 
+  ggtitle("Standardized Residuals Plot (Fitted) ") 
+```
+
+Scatterplot matrix with correlation values
+
+```{r scatterplot-matrix, include=TRUE}
+# Scatterplot Matrix with Correlation Values
+# Create a scatterplot matrix (pairs plot) for the 'Dataset' data frame
+# The 'upper' panel contains correlation values with a point size of 4
+# This visualization helps to understand variable relationships and correlations
+# The 'lower' panel contains scatterplots with points and alpha transparency of 0.3
+# The point size in the upper panel is set to 0.1
+ggpairs(Dataset,
+        upper = list(continuous = wrap('cor', size = 4)),
+        lower = list(continuous = wrap("points", alpha = 0.3, size = 0.1)))
+```
+
+# Multiple Linear Regression (MLR)
+
+Building a multiple linear regression model
+
+```{r mlr-model, include=TRUE}
+# Create a Multiple Linear Regression Model
+# Model 'GroundCO' variable using multiple predictors including ...
+# ... 'SensorCO', 'Temperature', 'RelativeHumidity', 'AbsoluteHumidity', ...
+# ... and 'Time' from the 'Dataset' data frame.
+m.mlr <- lm(GroundCO ~ SensorCO + Temperature + RelativeHumidity +
+              AbsoluteHumidity + Time,
+            data = Dataset)
+```
+
+Summary of the MLR model
+
+```{r mlr-summary, include=TRUE}
+# Generate a summary of the Multiple Linear Regression (MLR) model
+summary(m.mlr)
+```
+
+Standard residuals for MLR
+
+```{r residuals-mlr, include=TRUE}
+# Standard Residuals vs SensorCO
+# Examine Standardized residuals
+# 'rstandard' calculates the standardized residuals for a linear regression model
+StanResMLR <- rstandard(m.mlr)
+# Create a data frame containing the SensorCO values and the standardized residuals
+dataMLS <- data.frame(SensorCO = Dataset$SensorCO, StanResMLR)
+
+# Combine Quad LS and MLR standardized residuals vs SensorCO plot 
+# Create a ggplot scatterplot with SensorCO on the x-axis and 'StanResQLS' ...
+# ... as well as 'StanResMLR' on the y-axis
+# Add points to the plot with a specified point size (0.1)
+# Add horizontal lines at y = 2 and y = -2 in blue to indicate threshold lines
+# Set a manual color scale for the points with labels "Linear" and "Quadratic"
+# Add a label for the y-axis
+# Set the title of the plot to "Standardized Residuals"
+ggplot() + 
+  geom_point(data = dataQLS, aes(x = SensorCO, y = StanResQLS, color = "Quadratic"),
+             size = 0.1) +
+  geom_point(data = dataMLS, aes(x = SensorCO, y = StanResMLR, color = "MLR"),
+             size = 0.1) +
+  geom_hline(yintercept = 2, color = 'blue') + 
+  geom_hline(yintercept = -2, color = 'blue') +
+  scale_color_manual(name = element_blank(), labels = c("MLR", "Quadratic"),
+                     values = c("red", "blue")) +
+  labs(y = "Standardized Residual") + 
+  ggtitle("Standardized Residuals Plot")
+```
+
+Standardized residuals vs fitted for MLR and Quadratic LS
+
+```{r residuals-vs-fitted-mlr, include=TRUE}
+# Standardized Residuals vs Fitted
+# Calculate the fitted values for the Quad LS model
+Fitted <- fitted(m.quadls)
+# Create a data frame containing the fitted values and the standardized residuals
+dataQLSFitted <- data.frame(Fitted, StanResQLS)
+# Calculate the fitted values for the MLR model
+Fitted <- fitted(m.mlr)
+# Create a data frame containing the fitted values and the standardized residuals
+dataMLRFitted <- data.frame(Fitted, StanResMLR)
+
+# Combine Quadratic and MLR standardized residuals vs fitted values plot 
+# Create a ggplot scatterplot with fitted values on the x-axis and 'StanResQLS' ...
+# ... as well as 'StanResMLR' on the y-axis
+# Add points to the plot with a specified point size (0.1)
+# Add horizontal lines at y = 2 and y = -2 in blue to indicate threshold lines
+# Set a manual color scale for the points with labels "MLR" and "Quadratic"
+# Add a label for the y-axis
+# Set the title of the plot to "Standardized Residuals"
+ggplot() + 
+  geom_point(data = dataQLSFitted, aes(x = Fitted, y = StanResQLS, color = "Quadratic"),
+             size = 0.1) +
+  geom_point(data = dataMLRFitted, aes(x = Fitted, y = StanResMLR, color = "MLR"),
+             size = 0.1) +
+  geom_hline(yintercept = 2, color = 'blue') + 
+  geom_hline(yintercept = -2, color = 'blue') +
+  scale_color_manual(name = element_blank(), labels = c("MLR", "Quadratic"),
+                     values = c("red", "blue")) +
+  labs(y = "Standardized Residual") + 
+  labs(x = "Fitted value") + 
+  ggtitle("Standardized Residuals Plot (Fitted) ") 
+```
+
+## Comparing Models
+
+Comparison with Quadratic LS
+
+Building a quadratic MLR model
+
+```{r quad-mlr-model, include=TRUE}
+# Create a Multiple Linear Regression Model
+# Model 'GroundCO' variable using multiple predictors including ...
+# ... 'SensorCO', 'SensorCO^2', 'Temperature', 'RelativeHumidity', 'AbsoluteHumidity', ...
+# ... and 'Time' from the 'Dataset' data frame.
+mquad.mls <- lm(GroundCO ~ SensorCO + I(SensorCO^2) + Temperature + RelativeHumidity +
+                  AbsoluteHumidity + Time,
+                data = Dataset)
+```
+
+Summary of the quadratic MLR model
+
+```{r quad-mlr-summary, include=TRUE}
+# Generate a summary of the mquad.mls model
+summary(mquad.mls)
+```
+
+Compare with quadratic model
+```{r compare-models, include=TRUE}
+# Compare with the summary of m.quadls model
+summary(m.quadls)
+```
