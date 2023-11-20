@@ -10,10 +10,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r load-packages/setwd, include=TRUE}
-setwd("C:/Users/jackw/Documents/R/Project")
+setwd("C:/Users/jackw/Documents/MA575/Project")
 library(ggplot2)
 library(dplyr)
 library(GGally)
+library(car)
+library(nlme)
+library(dplyr)
+library(tidyr)
 ```
 
 ```{r Question 2}
@@ -23,13 +27,11 @@ View(q2_data)
 ```
 
 ```{r Question 2}
-model = lm(
-  `GrossBoxOffice` ~
-  `year`,
-  I(`year`^2),
-  I(`year`^3),
+improved_model <- gls(
+  GrossBoxOffice ~ year  + I(year^2) + I(year^3),
   data = q2_data
 )
+
 ```
 
 
@@ -37,8 +39,21 @@ model = lm(
 summary(model)
 plot(model)
 avPlots(model)
-vif(model)
+residuals <- residuals(improved_model)
+
+# Plot the ACF of standardized residuals
+acf(residuals / sd(residuals))
 ```
+```{r}
+predicted_2008 <- predict(improved_model, newdata = data.frame(year = 2008))
+cat("Predicted GrossBoxOffice for the year 2008:", predicted_2008)
+```
+
+```{r}
+plot(q2_data$year,q2_data$GrossBoxOffice)
+boxplot(q2_data$`GrossBoxOffice`)
+```
+
 
 
 # ```{r Question 3}

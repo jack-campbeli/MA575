@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Set working directory
 ```{r}
-setwd("C:/Users/jackw/Documents/R/Project2")
+setwd("C:/Users/jackw/Documents/MA575/Project2")
 ```
 
 ```{r}
@@ -95,8 +95,8 @@ summary(facebook$ln.Lifetime.Post.Consumers)
 
 ```{r}
 #create training and validation dataset
-training_data <- subset(facebook_no_outliers, obs_type == "Training")
-validation_data <- subset(facebook_no_outliers, obs_type == "Validation")
+training_data <- subset(facebook, obs_type == "Training")
+validation_data <- subset(facebook, obs_type == "Validation")
 #model selection
 m.mlr <- lm(ln.Lifetime.Post.Consumers ~ Type + season + worktime +I(ln.Page.Total.likes)
             + weekday + Category + Paid + Paid*ln.Page.Total.likes

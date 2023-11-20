@@ -1,0 +1,128 @@
+---
+title: "Hw6"
+author: "Jack"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+```{r}
+setwd("C:/Users/jackw/Documents/R/hw6")
+# install.packages("car")
+# install.packages("ggplot")
+library(car)
+library(ggplot2)
+# library(GGally)
+```
+
+```{r}
+library(readr)
+pga <- read_csv("pgatour2006.csv")
+View(pga)
+```
+```{r}
+# Create density plot for DrivingAccuracy
+plot(density(pga$DrivingAccuracy), main = "DrivingAccuracy")
+
+# Create density plot for GIR
+plot(density(pga$GIR), main = "GIR")
+
+# Create density plot for PuttingAverage
+plot(density(pga$PuttingAverage), main = "PuttingAverage")
+
+# Create density plot for BirdieConversion
+plot(density(pga$BirdieConversion), main = "BirdieConversion")
+
+# Create density plot for SandSaves
+plot(density(pga$SandSaves), main = "SandSaves")
+
+# Create density plot for Scrambling
+plot(density(pga$Scrambling), main = "Scrambling")
+
+# Create density plot for PuttsPerRound
+plot(density(pga$PuttsPerRound), main = "PuttsPerRound")
+
+# Create density plot for log(PrizeMoney)
+plot(density(log(pga$PrizeMoney)), main = "log(PrizeMoney)")
+```
+
+```{r}
+# Create density plot for log(DrivingAccuracy)
+plot(density(log(pga$DrivingAccuracy)), main = "log(DrivingAccuracy)")
+
+# Create density plot for log(GIR)
+plot(density(log(pga$GIR)), main = "log(GIR)")
+
+# Create density plot for log(PuttingAverage)
+plot(density(log(pga$PuttingAverage)), main = "log(PuttingAverage)")
+
+# Create density plot for log(BirdieConversion)
+plot(density(log(pga$BirdieConversion)), main = "log(BirdieConversion)")
+
+# Create density plot for log(SandSaves)
+plot(density(log(pga$SandSaves)), main = "log(SandSaves)")
+
+# Create density plot for log(Scrambling)
+plot(density(log(pga$Scrambling)), main = "log(Scrambling)")
+
+# Create density plot for log(PuttsPerRound)
+plot(density(log(pga$PuttsPerRound)), main = "log(PuttsPerRound)")
+
+# Create density plot for log(PrizeMoney)
+plot(density(log(pga$PrizeMoney)), main = "log(PrizeMoney)")
+```
+
+```{r}
+# Create the linear model
+lm_model <- lm(PrizeMoney ~ DrivingAccuracy + GIR + PuttingAverage + BirdieConversion + SandSaves + Scrambling + PuttsPerRound, data = pga)
+
+lm_model2 <- lm(sqrt(PrizeMoney) ~ DrivingAccuracy + GIR + PuttingAverage + BirdieConversion + SandSaves + Scrambling + PuttsPerRound, data = pga)
+
+pga$AvgPuttsPerRound <- (pga$PuttingAverage + pga$PuttsPerRound) / 2
+lm_model_combined <- lm(log(PrizeMoney) ~ DrivingAccuracy + GIR + BirdieConversion + SandSaves + Scrambling + AvgPuttsPerRound, data = pga)
+
+# Create a scatter plot matrix
+pga$log_PrizeMoney <- log(pga$PrizeMoney)
+scatterplotMatrix(pga[c("log_PrizeMoney", "DrivingAccuracy", "GIR", "BirdieConversion", "SandSaves", "Scrambling", "AvgPuttsPerRound")])
+
+
+```
+
+```{r}
+# summary(lm_model)
+# plot(lm_model)
+# avPlots(lm_model)
+# vif(lm_model)
+```
+
+```{r}
+# summary(lm_model2)
+# plot(lm_model2)
+# avPlots(lm_model2)
+# vif(lm_model2)
+```
+
+```{r}
+summary(lm_model_combined)
+plot(lm_model_combined)
+avPlots(lm_model_combined)
+vif(lm_model_combined)
+```
+
+```{r}
+# Load necessary libraries
+library(car)
+
+# # Create a matrix plot for lm_model
+# plot_matrix_model <- lm_model$model  # Extract the model data frame
+# pairs(~ DrivingAccuracy + GIR + PuttingAverage + BirdieConversion + SandSaves + Scrambling + PuttsPerRound, data = plot_matrix_model)
+# 
+# # Create a matrix plot for lm_model2
+# plot_matrix_model2 <- lm_model2$model  # Extract the model data frame
+# pairs(~ DrivingAccuracy + GIR + PuttingAverage + BirdieConversion + SandSaves + Scrambling + PuttsPerRound, data = plot_matrix_model2)
+# 
+# ggpairs(pga, columns = c("DrivingAccuracy", "GIR", "BirdieConversion", "SandSaves", "Scrambling", "AvgPuttsPerRound"), mapping = aes(color = AvgPuttsPerRound))
+```
