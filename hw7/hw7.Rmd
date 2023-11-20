@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r load-packages/setwd, include=TRUE}
-setwd("C:/Users/jackw/Documents/MA575/Project")
+setwd("C:/Users/jackw/Documents/MA575/hw7")
 library(ggplot2)
 library(dplyr)
 library(GGally)
@@ -22,43 +22,77 @@ library(tidyr)
 
 ```{r Question 2}
 q2_data = read.table("boxoffice.txt", header=TRUE)
-q2_data$years_past_1975 = q2_data$year - 1975
 View(q2_data)
 ```
 
 ```{r Question 2}
-improved_model <- gls(
-  GrossBoxOffice ~ year  + I(year^2) + I(year^3),
+q2_data <- q2_data  %>% mutate(lagged_GrossBoxOffice = lag(GrossBoxOffice), lagged_GrossBoxOffice = replace_na(lagged_GrossBoxOffice, 0))
+
+model <- lm(
+  GrossBoxOffice ~ lagged_GrossBoxOffice + I(year^2),
   data = q2_data
 )
-
 ```
 
 
-```{r}
+```{r Question 2}
 summary(model)
 plot(model)
 avPlots(model)
-residuals <- residuals(improved_model)
+residuals <- residuals(model)
 
-# Plot the ACF of standardized residuals
 acf(residuals / sd(residuals))
 ```
-```{r}
-predicted_2008 <- predict(improved_model, newdata = data.frame(year = 2008))
+```{r Question 2}
+new_data_2008 <- data.frame(
+  lagged_GrossBoxOffice = 895.4,
+  year = 2008
+)
+
+
+predicted_2008 <- predict(model, newdata = new_data_2008)
+
 cat("Predicted GrossBoxOffice for the year 2008:", predicted_2008)
 ```
 
-```{r}
+```{r Question 2}
 plot(q2_data$year,q2_data$GrossBoxOffice)
 boxplot(q2_data$`GrossBoxOffice`)
 ```
 
 
 
-# ```{r Question 3}
-# library(readr)
-# q3_data <- read_csv("R/hw7/UN11(5).csv")
-# View(q3_data)
-# ```
+```{r Question 3}
+library(readr)
+q3_data <- read_csv("UN11(5).csv")
+View(q3_data)
+```
+
+```{r Question 3}
+library(boot)
+library(MASS)  
+
+# BOOT
+ols_model <- function(data, indices) {
+  sampled_data <- data[indices, ]
+  fit <- lm(fertility ~ log(ppgdp) + pctUrban, data = sampled_data)
+  return(coef(fit))
+}
+
+set.seed(0)
+res_boot <- boot(data = q3_data, statistic = ols_model, R = 1000)
+summary(res_boot)
+
+#ORIGINAL
+set.seed(0)
+ols_fit <- lm(fertility ~ log(ppgdp) + pctUrban, data = q3_data)
+summary(ols_fit)
+```
+
+```{r Question 3}
+par(mfrow = c(1, 1))
+hist(res_boot$t[, 1], main = "Bootstrap Coefficient for Intercept", xlab = "Coefficient Value")
+hist(res_boot$t[, 2], main = "Bootstrap Coefficient for log(ppgdp)", xlab = "Coefficient Value")
+hist(res_boot$t[, 3], main = "Bootstrap Coefficient for pctUrban", xlab = "Coefficient Value")
+```
 
